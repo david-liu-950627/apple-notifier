@@ -62,7 +62,7 @@ func main() {
 					continue
 				}
 
-				isAvailable := partsAvailability.PickupDisplay != "unavailable"
+				isAvailable := partsAvailability.PickupDisplay == "available"
 
 				if isAvailable {
 					productTitle := partsAvailability.StorePickupProductTitle
