@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	PartNumbers        []string `json:"partNumbers"`
+	FulfillmentUrls    []string `json:"fulfillmentUrls"`
 	UserId             string   `json:"userId"`
 	ChannelAccessToken string   `json:"channelAccessToken"`
 }
@@ -48,26 +48,23 @@ func main() {
 	for {
 		fmt.Println("Start to check product...")
 		messageLines := []string{}
-		for idx, partNumber := range config.PartNumbers {
-			fmt.Printf("%v. Checking %v ...\n", idx+1, partNumber)
-			data, err := fetchProductInfo(partNumber)
+		for idx, fulfillmentUrl := range config.FulfillmentUrls {
+			fmt.Printf("%v. Checking %v ...\n", idx+1, fulfillmentUrl)
+			data, err := fetchProductInfo(fulfillmentUrl)
 			if err != nil {
 				fmt.Println(err)
 			}
 
 			stores := data.Body.Content.PickupMessage.Stores
 			for _, store := range stores {
-				partsAvailability, ok := store.PartsAvailability[partNumber]
-				if !ok {
-					continue
-				}
+				for _, partsAvailability := range store.PartsAvailability {
+					isAvailable := partsAvailability.PickupDisplay == "available"
 
-				isAvailable := partsAvailability.PickupDisplay == "available"
-
-				if isAvailable {
-					productTitle := partsAvailability.StorePickupProductTitle
-					storeName := store.StoreName
-					messageLines = append(messageLines, fmt.Sprintf("商品「%s」在「%s」可供訂購", productTitle, storeName))
+					if isAvailable {
+						productTitle := partsAvailability.StorePickupProductTitle
+						storeName := store.StoreName
+						messageLines = append(messageLines, fmt.Sprintf("商品「%s」在「%s」可供訂購", productTitle, storeName))
+					}
 				}
 			}
 		}
@@ -85,8 +82,8 @@ func main() {
 	}
 }
 
-func fetchProductInfo(partNumber string) (data FulfillmentMessagesResponse, err error) {
-	apiUrl, err := makeApiURL(partNumber)
+func fetchProductInfo(fulfillmentUrl string) (data FulfillmentMessagesResponse, err error) {
+	apiUrl, err := makeApiURL(fulfillmentUrl)
 	if err != nil {
 		return
 	}
@@ -107,17 +104,14 @@ func fetchProductInfo(partNumber string) (data FulfillmentMessagesResponse, err 
 	return
 }
 
-func makeApiURL(partNumber string) (url string, err error) {
-	req, err := http.NewRequest("GET", "https://www.apple.com/tw/shop/fulfillment-messages", nil)
+func makeApiURL(fulfillmentUrl string) (url string, err error) {
+	req, err := http.NewRequest("GET", fulfillmentUrl, nil)
 	if err != nil {
 		return
 	}
 
 	q := req.URL.Query()
-	q.Add("parts.0", partNumber)
 	q.Add("location", "11061")
-	q.Add("mt", "regular")
-	q.Add("option.0", "")
 	q.Add("_", fmt.Sprint(time.Now().UnixMilli()))
 	req.URL.RawQuery = q.Encode()
 	url = req.URL.String()
